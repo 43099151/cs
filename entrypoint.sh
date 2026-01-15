@@ -9,7 +9,7 @@ export TS_NAME="cs"
 export APP_COMMAND="/app/docker-entrypoint.sh"
 # 备份路径 (加上 /var/lib/tailscale)
 export BACKUP_PATH="/app/data /app/config /var/lib/tailscale"
-export APP_INTERNAL_PORT=8008
+export APP_INTERNAL_PORT=7860
 export R2_ACCESS_KEY="75e72cddecc51b32deab13873c967000"
 export R2_ENDPOINT="https://6e84f688bfe062834470070a2d946be5.r2.cloudflarestorage.com"
 export R2_BUCKET_NAME="hf--backups"
@@ -85,25 +85,13 @@ fi
 echo "==> [SSH] 启动 sshd..."
 /usr/sbin/sshd -D &
 
-# --- 8. 启动 Python 保活 ---
-cat > /fake_server.py <<EOF
-import http.server, socketserver
-class HealthCheckHandler(http.server.SimpleHTTPRequestHandler):
-    def do_GET(self):
-        try:
-            self.send_response(200)
-            self.send_header('Content-type', 'text/plain')
-            self.end_headers()
-            self.wfile.write(b"Hugging Face Keep-Alive: Running with FRP")
-        except: pass
-    def log_message(self, format, *args): pass
-if __name__ == "__main__":
-    try:
-        with socketserver.TCPServer(("", 7860), HealthCheckHandler) as httpd:
-            httpd.serve_forever()
-    except: pass
-EOF
-python3 /fake_server.py &
+# --- 8. [已修改] 启动端口转发 (7860 -> 8008) ---
+# 删除原来的 Python 代码，改用 socat 转发
+echo "==> [Network] 启动端口转发: HF(7860) -> App(8008)..."
+# TCP-LISTEN:7860  : 监听 HF 的入口端口
+# fork             : 允许并发连接
+# TCP:127.0.0.1:8008 : 转发给内部的主程序端口
+socat TCP-LISTEN:7860,fork,bind=0.0.0.0 TCP:127.0.0.1:8008 &
 
 # --- 9. 启动 Tailscale (Userspace 模式) ---
 echo "==> [Tailscale] 初始化..."
@@ -183,4 +171,5 @@ echo "==> [System] 启动 CloudSaver..."
 ${APP_COMMAND} || {
     echo "!!! 主程序崩溃 !!!"
     sleep infinity
+
 }
