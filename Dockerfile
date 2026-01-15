@@ -6,13 +6,13 @@ USER root
 # 1. 安装基础工具 (直接集成 Rclone, Python3, tailscale下载)
 RUN if [ -f /etc/alpine-release ]; then \
   apk update && \
-  apk add --no-cache curl unzip bash ca-certificates procps sed python3 rclone openssh-server && \
+  apk add --no-cache curl unzip bash ca-certificates procps sed python3 rclone openssh-server socat && \
   sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
   echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
   ssh-keygen -A; \
   else \
   apt-get update && \
-  apt-get install -y curl unzip bash ca-certificates procps sed python3 rclone openssh-server && \
+  apt-get install -y curl unzip bash ca-certificates procps sed python3 rclone openssh-server socat && \
   mkdir -p /run/sshd && \
   sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
   rm -rf /var/lib/apt/lists/*; \
@@ -33,4 +33,5 @@ COPY entrypoint.sh /entrypoint.sh
 RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 
 # 4. 设置入口
+
 ENTRYPOINT ["/entrypoint.sh"]
